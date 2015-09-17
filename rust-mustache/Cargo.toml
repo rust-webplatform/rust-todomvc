@@ -1,0 +1,13 @@
+[package]
+name = "rust-mustache"
+version = "0.3.0"
+authors = ["erick.tryzelaar@gmail.com"]
+license = "MIT/Apache-2.0"
+
+[lib]
+name = "mustache"
+
+[dependencies]
+
+rustc-serialize = "*"
+log = "*"
