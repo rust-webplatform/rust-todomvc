@@ -2,34 +2,24 @@
 #![feature(unsafe_destructor)]
 #![plugin(concat_bytes)]
 
+#[macro_use] extern crate webplatform;
 extern crate libc;
-
-#[macro_use]
-mod webplatform;
+extern crate mustache;
+extern crate rustc_serialize;
 
 use std::borrow::ToOwned;
+use mustache::{MapBuilder, Data};
+use std::collections::HashMap;
+
+#[derive(RustcEncodable)]
+struct Planet {
+    value: String,
+}
 
 fn main() {
     let document = webplatform::init();
     {
         let body = document.element_query("body").unwrap();
-
-     //    let hr = document.element_create("hr").unwrap();
-     //    body.append(&hr);
-
-     //    body.html_prepend("<h1>HELLO FROM RUST</h1>");
-     //    body.html_append("<button>CLICK ME</button>");
-
-     //    let mut button = document.element_query("button").unwrap();
-
-     //    let bodyref = body.root_ref();
-     //    let bodyref2 = body.root_ref();
-    	// button.on("click", move || {
-     //        bodyref2.prop_set_str("bgColor", "blue");
-     //    });
-        
-     //    println!("This should be blue: {:?}", bodyref.prop_get_str("bgColor"));
-     //    println!("Width?: {:?}", bodyref.prop_get_i32("clientWidth"));
 
         body.html_set(r##"
 <title>VanillaJS • TodoMVC</title>
@@ -69,28 +59,51 @@ fn main() {
 </footer>
         "##);
 
-        let todo_new = document.element_query(".new-todo").unwrap();
-        let list = document.element_query(".todo-list").unwrap();
-
-        println!("todo_new {:?}, list {:?}", todo_new, list);
-
-        let t1 = todo_new.root_ref();
-        println!("ok {:?}", t1);
-        todo_new.on("change", move || {
-            println!("okno {:?}", t1);
-            let value = t1.prop_get_str("value");
-            list.html_append(&(r#"
-<li data-id="{{id}}" class="{{completed}}">'
+        let template = mustache::compile_str(r#"
+<li data-id="{{id}}" class="{{completed}}">
   <div class="view">
     <input class="toggle" type="checkbox" {{checked}}>
-    <label>"#.to_owned() + &value + r#"</label>
+    <label>{{value}}</label>
     <button class="destroy"></button>
-  </div>'
-</li>"#));
+  </div>
+</li>"#);
+
+        let todo_new = document.element_query(".new-todo").unwrap();
+        let list = document.element_query(".todo-list").unwrap();
+        let clear = document.element_query(".clear-completed").unwrap();
+
+        clear.on("click", move || {
+            webplatform::alert("TODO");
+        });
+
+        let t1 = todo_new.root_ref();
+        todo_new.on("change", move || {
+            let value = t1.prop_get_str("value");
+
+            let data = MapBuilder::new()
+                .insert_str("id", "0")
+                .insert_str("checked", "")
+                .insert_str("value", value)
+                .build();
+
+            let mut vec = Vec::new();
+            template.render_data(&mut vec, &data);
+
+            list.html_append(&String::from_utf8(vec).unwrap());
+
+            // let entry = document.element_query(".todo-list li:last-child").unwrap();
         });
     
         webplatform::spin();
     }
 
     println!("NO CALLING ME.");
+}
+
+#[no_mangle]
+pub extern "C" fn syscall(a: i32) -> i32 {
+    if a == 355 {
+        return 55
+    }
+    return -1
 }
