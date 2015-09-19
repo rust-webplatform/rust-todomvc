@@ -1,6 +1,5 @@
 #![feature(plugin)]
 #![feature(unsafe_destructor)]
-#![plugin(concat_bytes)]
 
 #[macro_use] extern crate webplatform;
 extern crate libc;

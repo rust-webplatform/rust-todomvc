@@ -17,10 +17,5 @@ rustc-serialize = "0.3.1"
 [dependencies.rust-mustache]
 path = "rust-mustache"
 
-[dependencies.concat_bytes]
-path = "concat_bytes"
-version = "0.1.0"
-
 [dependencies.webplatform]
-path = "../rust-webplatform"
-version = "0.1.2"
+version = "0.1.4"
