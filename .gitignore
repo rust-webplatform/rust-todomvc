@@ -2,3 +2,4 @@
 .gitattributes
 Cargo.lock
 .cargo
+static/todomvc*
