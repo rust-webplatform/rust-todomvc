@@ -15,9 +15,9 @@ fn main() {
         let body = document.element_query("body").unwrap();
 
         body.html_set(r##"
-<title>VanillaJS • TodoMVC</title>
-<link rel="stylesheet" href="/base.css">
-<link rel="stylesheet" href="/index.css">
+<title>Rust &middot; TodoMVC</title>
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="index.css">
 <section class="todoapp">
     <header class="header">
         <h1>todos</h1>
