@@ -9,12 +9,7 @@ extern crate rustc_serialize;
 
 use mustache::{MapBuilder};
 
-fn main() {
-    let document = webplatform::init();
-    {
-        let body = document.element_query("body").unwrap();
-
-        body.html_set(r##"
+const INIT_HTML:&'static str = r##"
 <title>Rust &middot; TodoMVC</title>
 <link rel="stylesheet" href="base.css">
 <link rel="stylesheet" href="index.css">
@@ -50,9 +45,15 @@ fn main() {
     <p>Refactored by <a href="https://github.com/cburgmer">Christoph Burgmer</a></p>
     <p>Part of <a href="http://todomvc.com">TodoMVC</a></p>
 </footer>
-        "##);
+"##;
 
-        let template = mustache::compile_str(r#"
+fn main() {
+    let document = webplatform::init();
+
+    let body = document.element_query("body").unwrap();
+    body.html_set(INIT_HTML);
+
+    let template = mustache::compile_str(r#"
 <li data-id="{{id}}" class="{{completed}}">
   <div class="view">
     <input class="toggle" type="checkbox" {{checked}}>
@@ -61,47 +62,36 @@ fn main() {
   </div>
 </li>"#);
 
-        let todo_new = document.element_query(".new-todo").unwrap();
-        let list = document.element_query(".todo-list").unwrap();
-        let clear = document.element_query(".clear-completed").unwrap();
+    let todo_new = document.element_query(".new-todo").unwrap();
+    let list = document.element_query(".todo-list").unwrap();
+    let clear = document.element_query(".clear-completed").unwrap();
 
-        clear.on("click", move || {
-            webplatform::alert("TODO");
+    clear.on("click", move || {
+        webplatform::alert("TODO");
+    });
+
+    let t1 = todo_new.root_ref();
+    // let d1 = document.clone();
+    todo_new.on("change", move || {
+        let value = t1.prop_get_str("value");
+
+        let data = MapBuilder::new()
+            .insert_str("id", "0")
+            .insert_str("checked", "")
+            .insert_str("value", value)
+            .build();
+
+        let mut vec = Vec::new();
+        template.render_data(&mut vec, &data);
+
+        list.html_append(&String::from_utf8(vec).unwrap());
+
+        let entry = document.element_query(".todo-list li:last-child").unwrap();
+        let entry_delete = document.element_query(".todo-list li:last-child button").unwrap();
+        entry_delete.on("click", move || {
+            entry.remove_self();
         });
+    });
 
-        let t1 = todo_new.root_ref();
-        // let d1 = document.clone();
-        todo_new.on("change", move || {
-            let value = t1.prop_get_str("value");
-
-            let data = MapBuilder::new()
-                .insert_str("id", "0")
-                .insert_str("checked", "")
-                .insert_str("value", value)
-                .build();
-
-            let mut vec = Vec::new();
-            template.render_data(&mut vec, &data);
-
-            list.html_append(&String::from_utf8(vec).unwrap());
-
-            let entry = document.element_query(".todo-list li:last-child").unwrap();
-            let entry_delete = document.element_query(".todo-list li:last-child button").unwrap();
-            entry_delete.on("click", move || {
-                entry.remove_self();
-            });
-        });
-    
-        webplatform::spin();
-    }
-
-    println!("NO CALLING ME.");
-}
-
-#[no_mangle]
-pub extern "C" fn syscall(a: i32) -> i32 {
-    if a == 355 {
-        return 55
-    }
-    return -1
+    webplatform::spin();
 }
