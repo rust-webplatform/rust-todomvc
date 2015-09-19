@@ -7,14 +7,7 @@ extern crate libc;
 extern crate mustache;
 extern crate rustc_serialize;
 
-use std::borrow::ToOwned;
-use mustache::{MapBuilder, Data};
-use std::collections::HashMap;
-
-#[derive(RustcEncodable)]
-struct Planet {
-    value: String,
-}
+use mustache::{MapBuilder};
 
 fn main() {
     let document = webplatform::init();
@@ -77,6 +70,7 @@ fn main() {
         });
 
         let t1 = todo_new.root_ref();
+        // let d1 = document.clone();
         todo_new.on("change", move || {
             let value = t1.prop_get_str("value");
 
@@ -91,7 +85,11 @@ fn main() {
 
             list.html_append(&String::from_utf8(vec).unwrap());
 
-            // let entry = document.element_query(".todo-list li:last-child").unwrap();
+            let entry = document.element_query(".todo-list li:last-child").unwrap();
+            let entry_delete = document.element_query(".todo-list li:last-child button").unwrap();
+            entry_delete.on("click", move || {
+                entry.remove_self();
+            });
         });
     
         webplatform::spin();
