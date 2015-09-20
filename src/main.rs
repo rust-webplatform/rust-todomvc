@@ -73,13 +73,15 @@ fn main() {
     let todo_count = document.element_query(".todo-count").unwrap();
     let list = document.element_query(".todo-list").unwrap();
     let clear = document.element_query(".clear-completed").unwrap();
+    let main = document.element_query(".main").unwrap();
+    let footer = document.element_query(".footer").unwrap();
 
-    let mut itemslist:Rc<RefCell<Vec<TodoItem>>> = Rc::new(RefCell::new(vec![]));
+    let itemslist:Rc<RefCell<Vec<TodoItem>>> = Rc::new(RefCell::new(vec![]));
 
     let iref = itemslist.clone();
     let llist = list.root_ref();
     let render = Rc::new(move || {
-        let mut items = iref.borrow_mut();
+        let items = iref.borrow_mut();
 
         llist.html_set("");
 
@@ -103,8 +105,8 @@ fn main() {
         };
         todo_count.html_set(&leftstr);
 
-        document.element_query(".main").unwrap().style_set_str("display", if items.len() == 0 { "none" } else { "block" });
-        document.element_query(".footer").unwrap().style_set_str("display", if items.len() == 0 { "none" } else { "block" });
+        main.style_set_str("display", if items.len() == 0 { "none" } else { "block" });
+        footer.style_set_str("display", if items.len() == 0 { "none" } else { "block" });
     });
 
     let iref = itemslist.clone();
@@ -130,6 +132,10 @@ fn main() {
     clear.on("click", move |_:Event| {
         iref.borrow_mut().retain(|ref x| !x.completed);
         rrender();
+    });
+
+    document.on("hashchange", |_:Event| {
+        println!("hash changed. {}", document.location_hash_get());
     });
 
     let t1 = todo_new.root_ref();
