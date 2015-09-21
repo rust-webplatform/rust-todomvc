@@ -13,6 +13,7 @@ use std::cell::{RefCell, Cell};
 use webplatform::{Event, LocalStorage};
 use webplatform_url::parse_path;
 use rustc_serialize::json;
+use std::clone::Clone;
 
 const TEMPLATE_PAGE: &'static str = include_str!("template-page.html");
 const TEMPLATE_TODO: &'static str = include_str!("template-todo.html");
@@ -30,6 +31,15 @@ enum TodoState {
     All
 }
 
+macro_rules! enclose {
+    ( ($( $x:ident ),*) $y:expr ) => {
+        {
+            $(let $x = $x.clone();)*
+            $y
+        }
+    };
+}
+
 fn main() {
     let document = Rc::new(webplatform::init());
 
@@ -42,36 +52,35 @@ fn main() {
     let clear = document.element_query(".clear-completed").unwrap();
     let main = document.element_query(".main").unwrap();
     let footer = document.element_query(".footer").unwrap();
-
     let filter_all = document.element_query(".filters li:nth-child(1) a").unwrap();
     let filter_active = document.element_query(".filters li:nth-child(2) a").unwrap();
     let filter_completed = document.element_query(".filters li:nth-child(3) a").unwrap();
-
     let toggle_all = document.element_query(".toggle-all").unwrap();
 
-    let state = Rc::new(Cell::new(TodoState::All));
-
+    // Decode localStorage list of todos.
     let restoredlist = if let Some(data) = LocalStorage.get("todos-rust") {
         json::decode(&data).unwrap_or(vec![])
     } else {
         vec![]
     };
+
+    // Our todo data structures.
+    let state = Rc::new(Cell::new(TodoState::All));
     let itemslist: Rc<RefCell<Vec<TodoItem>>> = Rc::new(RefCell::new(restoredlist));
 
+    // Precompile mustache template for string.
     let template = mustache::compile_str(TEMPLATE_TODO);
 
-    let iref = itemslist.clone();
     let llist = list.root_ref();
-    let sstate = state.clone();
-    let render = Rc::new(move || {
-        let items = iref.borrow_mut();
+    let render = Rc::new(enclose! { (itemslist, state) move || {
+        let items = itemslist.borrow_mut();
 
         LocalStorage.set("todos-rust", &json::encode(&*items).unwrap());
 
         llist.html_set("");
 
         for (i, item) in items.iter().filter(|&x| {
-            match sstate.get() {
+            match state.get() {
                 TodoState::All => true,
                 TodoState::Active => !x.completed,
                 TodoState::Completed => x.completed,
@@ -99,7 +108,7 @@ fn main() {
         main.style_set_str("display", if items.len() == 0 { "none" } else { "block" });
         footer.style_set_str("display", if items.len() == 0 { "none" } else { "block" });
 
-        match sstate.get() {
+        match state.get() {
             TodoState::All => {
                 filter_all.class_add("selected");
                 filter_active.class_remove("selected");
@@ -116,106 +125,89 @@ fn main() {
                 filter_completed.class_add("selected");
             },
         }
-    });
+    } });
 
-    let iref = itemslist.clone();
-    let rrender = render.clone();
-    list.on("click", move |e:Event| {
+    list.on("click", enclose! { (itemslist, render) move |e:Event| {
         let node = e.target.unwrap();
         if node.class_get().contains("destroy") {
             let id = node.parent().unwrap().parent().unwrap().data_get("id").unwrap().parse::<usize>().unwrap();
-            iref.borrow_mut().remove(id);
-            rrender();
+            itemslist.borrow_mut().remove(id);
+            render();
         } else if node.class_get().contains("toggle") {
             let id = node.parent().unwrap().parent().unwrap().data_get("id").unwrap().parse::<usize>().unwrap();
             {
-                let item = &mut iref.borrow_mut()[id];
+                let item = &mut itemslist.borrow_mut()[id];
                 item.completed = !item.completed;
             }
-            rrender();
+            render();
         }
-    });
+    } });
 
-    let doc2 = document.clone();
-    list.on("dblclick", move |e:Event| {
+    list.on("dblclick", enclose! { (document) move |e:Event| {
         let node = e.target.unwrap();
         if node.tagname() == "label" {
             node.parent().unwrap().parent().unwrap().class_add("editing");
-            doc2.element_query("li.editing .edit").unwrap().focus();
+            document.element_query("li.editing .edit").unwrap().focus();
         }
-    });
+    } });
 
-    let iref = itemslist.clone();
-    let rrender = render.clone();
-    list.captured_on("blur", move |e:Event| {
+    list.captured_on("blur", enclose! { (itemslist, render) move |e:Event| {
         let node = e.target.unwrap();
         if node.class_get().contains("edit") {
             let id = node.parent().unwrap().data_get("id").unwrap().parse::<usize>().unwrap();
-            iref.borrow_mut()[id].title = node.prop_get_str("value");
-            rrender();
+            itemslist.borrow_mut()[id].title = node.prop_get_str("value");
+            render();
         }
-    });
+    } });
 
-    let iref = itemslist.clone();
-    let rrender = render.clone();
-    clear.on("click", move |_:Event| {
-        iref.borrow_mut().retain(|ref x| !x.completed);
-        rrender();
-    });
+    clear.on("click", enclose! { (itemslist, render) move |_:Event| {
+        itemslist.borrow_mut().retain(|ref x| !x.completed);
+        render();
+    } });
 
     let t1 = todo_new.root_ref();
-    let iref = itemslist.clone();
-    let rrender = render.clone();
-    todo_new.on("change", move |_:Event| {
+    todo_new.on("change", enclose! { (itemslist, render) move |_:Event| {
         let value = t1.prop_get_str("value");
         t1.prop_set_str("value", "");
 
-        iref.borrow_mut().push(TodoItem {
+        itemslist.borrow_mut().push(TodoItem {
             title: value,
             completed: false,
         });
-        rrender();
-    });
+        render();
+    } });
 
-    let rrender = render.clone();
-    let sstate = state.clone();
-    let ddoc2 = document.clone();
-    let update_path = Rc::new(move || {
-        let hash = ddoc2.location_hash_get();
+    let update_path = Rc::new(enclose! { (render, state, document) move || {
+        let hash = document.location_hash_get();
         let path = if hash.len() < 1 {
             vec!["".to_string()]
         } else {
             parse_path(&hash[1..]).unwrap().0
         };
-        println!("hash changed. {:?}", path);
 
         match &*path[0] {
-            "active" => sstate.set(TodoState::Active),
-            "completed" => sstate.set(TodoState::Completed),
-            _ => sstate.set(TodoState::All),
+            "active" => state.set(TodoState::Active),
+            "completed" => state.set(TodoState::Completed),
+            _ => state.set(TodoState::All),
         }
 
-        rrender();
-    });
+        render();
+    } });
 
-    let upath = update_path.clone();
-    document.on("hashchange", move |_:Event| {
-        upath();
-    });
+    document.on("hashchange", enclose! { (update_path) move |_:Event| {
+        update_path();
+    } });
     update_path();
 
-    let rrender = render.clone();
     let tgl = toggle_all.root_ref();
-    let iref = itemslist.clone();
-    toggle_all.on("change", move |_:Event| {
+    toggle_all.on("change", enclose! { (itemslist, render) move |_:Event| {
         let val = if tgl.prop_get_i32("checked") == 1 { true } else { false };
-        for item in iref.borrow_mut().iter_mut() {
+        for item in itemslist.borrow_mut().iter_mut() {
             item.completed = val;
         }
-        rrender();
-    });
+        render();
+    } });
 
     render();
-
     webplatform::spin();
 }
