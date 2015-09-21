@@ -1,4 +1,5 @@
 #![feature(plugin)]
+#![feature(core)]
 #![feature(unsafe_destructor)]
 
 #[macro_use] extern crate webplatform;
@@ -9,7 +10,7 @@ extern crate webplatform_url;
 
 use mustache::{MapBuilder};
 use std::rc::Rc;
-use std::cell::{RefCell, Cell};
+use std::cell::{RefCell};
 use webplatform::{Event, LocalStorage};
 use webplatform_url::parse_path;
 use rustc_serialize::json;
@@ -18,10 +19,16 @@ use std::clone::Clone;
 const TEMPLATE_PAGE: &'static str = include_str!("template-page.html");
 const TEMPLATE_TODO: &'static str = include_str!("template-todo.html");
 
-#[derive(RustcEncodable, RustcDecodable)]
+#[derive(RustcEncodable, RustcDecodable, Clone)]
 struct TodoItem {
     title: String,
     completed: bool,
+}
+
+impl TodoItem {
+    fn toggle(&mut self) {
+        self.completed = !self.completed;
+    }
 }
 
 #[derive(Copy)]
@@ -38,6 +45,20 @@ macro_rules! enclose {
             $y
         }
     };
+}
+
+struct Todo {
+    state: TodoState,
+    items: Vec<TodoItem>,
+}
+
+impl Todo {
+    fn new() -> Todo {
+        Todo {
+            state: TodoState::All,
+            items: vec![]
+        }
+    }
 }
 
 fn main() {
@@ -57,30 +78,27 @@ fn main() {
     let filter_completed = document.element_query(".filters li:nth-child(3) a").unwrap();
     let toggle_all = document.element_query(".toggle-all").unwrap();
 
-    // Decode localStorage list of todos.
-    let restoredlist = if let Some(data) = LocalStorage.get("todos-rust") {
-        json::decode(&data).unwrap_or(vec![])
-    } else {
-        vec![]
-    };
+    // Our TODO list.
+    let todo = Rc::new(RefCell::new(Todo::new()));
 
-    // Our todo data structures.
-    let state = Rc::new(Cell::new(TodoState::All));
-    let itemslist: Rc<RefCell<Vec<TodoItem>>> = Rc::new(RefCell::new(restoredlist));
+    // Decode localStorage list of todos.
+    if let Some(data) = LocalStorage.get("todos-rust") {
+        if let Ok(vec) = json::decode::<Vec<TodoItem>>(&data) {
+            todo.borrow_mut().items.extend(vec.iter().cloned());
+        }
+    }
 
     // Precompile mustache template for string.
     let template = mustache::compile_str(TEMPLATE_TODO);
 
     let llist = list.root_ref();
-    let render = Rc::new(enclose! { (itemslist, state) move || {
-        let items = itemslist.borrow_mut();
-
-        LocalStorage.set("todos-rust", &json::encode(&*items).unwrap());
+    let render = Rc::new(enclose! { (todo) move || {
+        LocalStorage.set("todos-rust", &json::encode(&todo.borrow().items).unwrap());
 
         llist.html_set("");
 
-        for (i, item) in items.iter().filter(|&x| {
-            match state.get() {
+        for (i, item) in todo.borrow().items.iter().filter(|&x| {
+            match todo.borrow().state {
                 TodoState::All => true,
                 TodoState::Active => !x.completed,
                 TodoState::Completed => x.completed,
@@ -97,7 +115,7 @@ fn main() {
             llist.html_append(&String::from_utf8(vec).unwrap());
         }
 
-        let len = items.iter().filter(|&x| !x.completed).count();
+        let len = todo.borrow().items.iter().filter(|&x| !x.completed).count();
         let leftstr = if len == 1 {
             "<strong>1</strong> item left.".to_string()
         } else {
@@ -105,10 +123,10 @@ fn main() {
         };
         todo_count.html_set(&leftstr);
 
-        main.style_set_str("display", if items.len() == 0 { "none" } else { "block" });
-        footer.style_set_str("display", if items.len() == 0 { "none" } else { "block" });
+        main.style_set_str("display", if todo.borrow().items.len() == 0 { "none" } else { "block" });
+        footer.style_set_str("display", if todo.borrow().items.len() == 0 { "none" } else { "block" });
 
-        match state.get() {
+        match todo.borrow().state {
             TodoState::All => {
                 filter_all.class_add("selected");
                 filter_active.class_remove("selected");
@@ -127,18 +145,15 @@ fn main() {
         }
     } });
 
-    list.on("click", enclose! { (itemslist, render) move |e:Event| {
+    list.on("click", enclose! { (todo, render) move |e:Event| {
         let node = e.target.unwrap();
         if node.class_get().contains("destroy") {
             let id = node.parent().unwrap().parent().unwrap().data_get("id").unwrap().parse::<usize>().unwrap();
-            itemslist.borrow_mut().remove(id);
+            todo.borrow_mut().items.remove(id);
             render();
         } else if node.class_get().contains("toggle") {
             let id = node.parent().unwrap().parent().unwrap().data_get("id").unwrap().parse::<usize>().unwrap();
-            {
-                let item = &mut itemslist.borrow_mut()[id];
-                item.completed = !item.completed;
-            }
+            todo.borrow_mut().items[id].toggle();
             render();
         }
     } });
@@ -151,33 +166,33 @@ fn main() {
         }
     } });
 
-    list.captured_on("blur", enclose! { (itemslist, render) move |e:Event| {
+    list.captured_on("blur", enclose! { (todo, render) move |e:Event| {
         let node = e.target.unwrap();
         if node.class_get().contains("edit") {
             let id = node.parent().unwrap().data_get("id").unwrap().parse::<usize>().unwrap();
-            itemslist.borrow_mut()[id].title = node.prop_get_str("value");
+            todo.borrow_mut().items[id].title = node.prop_get_str("value");
             render();
         }
     } });
 
-    clear.on("click", enclose! { (itemslist, render) move |_:Event| {
-        itemslist.borrow_mut().retain(|ref x| !x.completed);
+    clear.on("click", enclose! { (todo, render) move |_:Event| {
+        todo.borrow_mut().items.retain(|ref x| !x.completed);
         render();
     } });
 
     let t1 = todo_new.root_ref();
-    todo_new.on("change", enclose! { (itemslist, render) move |_:Event| {
+    todo_new.on("change", enclose! { (todo, render) move |_:Event| {
         let value = t1.prop_get_str("value");
         t1.prop_set_str("value", "");
 
-        itemslist.borrow_mut().push(TodoItem {
+        todo.borrow_mut().items.push(TodoItem {
             title: value,
             completed: false,
         });
         render();
     } });
 
-    let update_path = Rc::new(enclose! { (render, state, document) move || {
+    let update_path = Rc::new(enclose! { (render, todo, document) move || {
         let hash = document.location_hash_get();
         let path = if hash.len() < 1 {
             vec!["".to_string()]
@@ -186,9 +201,9 @@ fn main() {
         };
 
         match &*path[0] {
-            "active" => state.set(TodoState::Active),
-            "completed" => state.set(TodoState::Completed),
-            _ => state.set(TodoState::All),
+            "active" => todo.borrow_mut().state = TodoState::Active,
+            "completed" => todo.borrow_mut().state = TodoState::Completed,
+            _ => todo.borrow_mut().state = TodoState::All,
         }
 
         render();
@@ -200,9 +215,9 @@ fn main() {
     update_path();
 
     let tgl = toggle_all.root_ref();
-    toggle_all.on("change", enclose! { (itemslist, render) move |_:Event| {
+    toggle_all.on("change", enclose! { (todo, render) move |_:Event| {
         let val = if tgl.prop_get_i32("checked") == 1 { true } else { false };
-        for item in itemslist.borrow_mut().iter_mut() {
+        for item in todo.borrow_mut().items.iter_mut() {
             item.completed = val;
         }
         render();
