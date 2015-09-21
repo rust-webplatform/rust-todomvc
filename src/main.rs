@@ -10,13 +10,15 @@ extern crate webplatform_url;
 use mustache::{MapBuilder};
 use std::rc::Rc;
 use std::cell::{RefCell, Cell};
-use webplatform::Event;
+use webplatform::{Event, LocalStorage};
 use webplatform_url::parse_path;
+use rustc_serialize::json;
 
 const INIT_HTML: &'static str = include_str!("template-page.html");
 
+#[derive(RustcEncodable, RustcDecodable)]
 struct TodoItem {
-    content: String,
+    title: String,
     completed: bool,
 }
 
@@ -47,7 +49,14 @@ fn main() {
     let toggle_all = document.element_query(".toggle-all").unwrap();
 
     let state = Rc::new(Cell::new(TodoState::All));
-    let itemslist: Rc<RefCell<Vec<TodoItem>>> = Rc::new(RefCell::new(vec![]));
+
+    let restoredlist = if let Some(data) = LocalStorage.get("todos-rust") {
+        json::decode(&data).unwrap_or(vec![])
+    } else {
+        vec![]
+    };
+
+    let itemslist: Rc<RefCell<Vec<TodoItem>>> = Rc::new(RefCell::new(restoredlist));
 
     let template = mustache::compile_str(include_str!("template-todo.html"));
 
@@ -56,6 +65,8 @@ fn main() {
     let sstate = state.clone();
     let render = Rc::new(move || {
         let items = iref.borrow_mut();
+
+        LocalStorage.set("todos-rust", &json::encode(&*items).unwrap());
 
         llist.html_set("");
 
@@ -69,7 +80,7 @@ fn main() {
             let data = MapBuilder::new()
                 .insert_str("id", format!("{}", i))
                 .insert_str("checked", if item.completed { "checked" } else { "" })
-                .insert_str("value", item.content.clone())
+                .insert_str("value", item.title.clone())
                 .build();
 
             let mut vec = Vec::new();
@@ -87,7 +98,6 @@ fn main() {
 
         main.style_set_str("display", if items.len() == 0 { "none" } else { "block" });
         footer.style_set_str("display", if items.len() == 0 { "none" } else { "block" });
-
 
         match sstate.get() {
             TodoState::All => {
@@ -141,7 +151,7 @@ fn main() {
         t1.prop_set_str("value", "");
 
         iref.borrow_mut().push(TodoItem {
-            content: value,
+            title: value,
             completed: false,
         });
         rrender();
