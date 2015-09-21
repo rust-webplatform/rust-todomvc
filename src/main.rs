@@ -30,7 +30,7 @@ enum TodoState {
 }
 
 fn main() {
-    let document = webplatform::init();
+    let document = Rc::new(webplatform::init());
 
     let body = document.element_query("body").unwrap();
     body.html_set(INIT_HTML);
@@ -63,6 +63,7 @@ fn main() {
     let iref = itemslist.clone();
     let llist = list.root_ref();
     let sstate = state.clone();
+    let doc2 = document.clone();
     let render = Rc::new(move || {
         let items = iref.borrow_mut();
 
@@ -138,6 +139,34 @@ fn main() {
 
     let iref = itemslist.clone();
     let rrender = render.clone();
+    let doc2 = document.clone();
+    list.on("dblclick", move |e:Event| {
+        let node = e.target.unwrap();
+        if node.tagname() == "label" {
+            node.parent().unwrap().parent().unwrap().class_add("editing");
+            doc2.element_query("li.editing .edit").unwrap().focus();
+        }
+    });
+
+    let iref = itemslist.clone();
+    let rrender = render.clone();
+    let doc2 = document.clone();
+    list.captured_on("blur", move |e:Event| {
+        let node = e.target.unwrap();
+        if node.class_get().contains("edit") {
+            let id = node.parent().unwrap().data_get("id").unwrap().parse::<usize>().unwrap();
+            iref.borrow_mut()[id].title = node.prop_get_str("value");
+            rrender();
+        }
+    });
+
+    // let 
+    // document.element_query(".todo-list li:last-child .edit").unwrap().on("blur", move |e:Event| {
+    //     e.target.unwrap().parent().unwrap().class_remove("editing");
+    // })
+
+    let iref = itemslist.clone();
+    let rrender = render.clone();
     clear.on("click", move |_:Event| {
         iref.borrow_mut().retain(|ref x| !x.completed);
         rrender();
@@ -157,11 +186,9 @@ fn main() {
         rrender();
     });
 
-    let ddoc = Rc::new(document);
-
     let rrender = render.clone();
     let sstate = state.clone();
-    let ddoc2 = ddoc.clone();
+    let ddoc2 = document.clone();
     let update_path = Rc::new(move || {
         let hash = ddoc2.location_hash_get();
         let path = if hash.len() < 1 {
@@ -181,7 +208,7 @@ fn main() {
     });
 
     let upath = update_path.clone();
-    ddoc.on("hashchange", move |_:Event| {
+    document.on("hashchange", move |_:Event| {
         upath();
     });
     update_path();

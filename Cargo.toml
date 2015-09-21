@@ -18,7 +18,7 @@ rustc-serialize = "0.3.1"
 path = "rust-mustache"
 
 [dependencies.webplatform]
-version = "0.2.0"
+version = "0.3.0"
 
 [dependencies.webplatform-url]
 path = "./rust-url"
