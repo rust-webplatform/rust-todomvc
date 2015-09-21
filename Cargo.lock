@@ -5,7 +5,7 @@ dependencies = [
  "libc 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "rust-mustache 0.3.0",
  "rustc-serialize 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "webplatform 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "webplatform 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "webplatform-url 0.2.27",
 ]
 
@@ -42,7 +42,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "webplatform"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "libc 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",

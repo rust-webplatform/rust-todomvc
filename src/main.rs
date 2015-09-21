@@ -14,7 +14,8 @@ use webplatform::{Event, LocalStorage};
 use webplatform_url::parse_path;
 use rustc_serialize::json;
 
-const INIT_HTML: &'static str = include_str!("template-page.html");
+const TEMPLATE_PAGE: &'static str = include_str!("template-page.html");
+const TEMPLATE_TODO: &'static str = include_str!("template-todo.html");
 
 #[derive(RustcEncodable, RustcDecodable)]
 struct TodoItem {
@@ -33,7 +34,7 @@ fn main() {
     let document = Rc::new(webplatform::init());
 
     let body = document.element_query("body").unwrap();
-    body.html_set(INIT_HTML);
+    body.html_set(TEMPLATE_PAGE);
 
     let todo_new = document.element_query(".new-todo").unwrap();
     let todo_count = document.element_query(".todo-count").unwrap();
@@ -55,15 +56,13 @@ fn main() {
     } else {
         vec![]
     };
-
     let itemslist: Rc<RefCell<Vec<TodoItem>>> = Rc::new(RefCell::new(restoredlist));
 
-    let template = mustache::compile_str(include_str!("template-todo.html"));
+    let template = mustache::compile_str(TEMPLATE_TODO);
 
     let iref = itemslist.clone();
     let llist = list.root_ref();
     let sstate = state.clone();
-    let doc2 = document.clone();
     let render = Rc::new(move || {
         let items = iref.borrow_mut();
 
@@ -137,8 +136,6 @@ fn main() {
         }
     });
 
-    let iref = itemslist.clone();
-    let rrender = render.clone();
     let doc2 = document.clone();
     list.on("dblclick", move |e:Event| {
         let node = e.target.unwrap();
@@ -150,7 +147,6 @@ fn main() {
 
     let iref = itemslist.clone();
     let rrender = render.clone();
-    let doc2 = document.clone();
     list.captured_on("blur", move |e:Event| {
         let node = e.target.unwrap();
         if node.class_get().contains("edit") {
@@ -159,11 +155,6 @@ fn main() {
             rrender();
         }
     });
-
-    // let 
-    // document.element_query(".todo-list li:last-child .edit").unwrap().on("blur", move |e:Event| {
-    //     e.target.unwrap().parent().unwrap().class_remove("editing");
-    // })
 
     let iref = itemslist.clone();
     let rrender = render.clone();
