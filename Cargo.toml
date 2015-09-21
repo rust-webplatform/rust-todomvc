@@ -19,3 +19,6 @@ path = "rust-mustache"
 
 [dependencies.webplatform]
 version = "0.2.0"
+
+[dependencies.webplatform-url]
+path = "./rust-url"

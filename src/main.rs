@@ -135,7 +135,7 @@ fn main() {
     });
 
     document.on("hashchange", |_:Event| {
-        println!("hash changed. {}", document.location_hash_get());
+        println!("hash changed. {}", &document.location_hash_get()[1..]);
     });
 
     let t1 = todo_new.root_ref();
