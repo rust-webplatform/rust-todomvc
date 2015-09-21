@@ -65,6 +65,7 @@ fn main() {
     let document = Rc::new(webplatform::init());
 
     let body = document.element_query("body").unwrap();
+    body.class_add("learn-bar");
     body.html_set(TEMPLATE_PAGE);
 
     let todo_new = document.element_query(".new-todo").unwrap();
