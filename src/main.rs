@@ -1,18 +1,11 @@
-#![feature(plugin)]
-#![feature(core)]
-#![feature(unsafe_destructor)]
-
 #[macro_use] extern crate webplatform;
-extern crate libc;
 extern crate mustache;
 extern crate rustc_serialize;
-extern crate webplatform_url;
 
 use mustache::{MapBuilder};
 use std::rc::Rc;
 use std::cell::{RefCell};
 use webplatform::{Event, LocalStorage};
-use webplatform_url::parse_path;
 use rustc_serialize::json;
 use std::clone::Clone;
 
@@ -31,7 +24,7 @@ impl TodoItem {
     }
 }
 
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 enum TodoState {
     Active,
     Completed,
@@ -198,7 +191,7 @@ fn main() {
         let path = if hash.len() < 1 {
             vec!["".to_string()]
         } else {
-            parse_path(&hash[1..]).unwrap().0
+            hash[1..].split("/").filter(|x| x.len() > 0).map(|x| x.to_string()).collect::<Vec<_>>()
         };
 
         match &*path[0] {
