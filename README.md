@@ -3,7 +3,7 @@
  [The TodoMVC app](https://github.com/tastejs/todomvc/blob/master/app-spec.md)
  implemented entirely in Rust using emscripten.
 
- Built on top of the [http://github.com/tcr/rust-webplatform] library.
+ Built on top of the [rust-webplatform](http://github.com/tcr/rust-webplatform) library.
 
 ## Compilation
 
