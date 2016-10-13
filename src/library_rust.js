@@ -1,2 +1,0 @@
-mergeInto(LibraryManager.library, {
-});
